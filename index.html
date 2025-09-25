@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fake Street View (Mobile Ready)</title>
+
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f0f0f0;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        /* Prevents pull-to-refresh on mobile */
+        overscroll-behavior-y: contain;
+      }
+      h1 {
+        text-align: center;
+        padding: 10px 0;
+        margin: 0;
+        background-color: #333;
+        color: white;
+        font-size: 1.5em;
+      }
+      #map {
+        width: 100%;
+        flex-grow: 1;
+        background-color: #ddd;
+      }
+      #viewer-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: black;
+        z-index: 1000;
+        display: none;
+        justify-content: center;
+        align-items: center;
+      }
+      #viewer-close-button {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        z-index: 1002;
+        background-color: rgba(0, 0, 0, 0.5);
+        color: white;
+        border: 2px solid white;
+        border-radius: 50%;
+        /* Increased size for easier tapping on mobile */
+        width: 44px;
+        height: 44px;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      #viewer-close-button:hover {
+        background-color: rgba(255, 255, 255, 0.3);
+      }
+
+      #loading-indicator {
+        color: white;
+        font-size: 2em;
+        background-color: rgba(0, 0, 0, 0.7);
+        padding: 20px 40px;
+        border-radius: 10px;
+        z-index: 1001;
+        position: absolute;
+        display: none;
+      }
+
+      #coord-helper-text {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 8px 15px;
+        border-radius: 5px;
+        font-size: 14px;
+        pointer-events: none;
+        z-index: 1002;
+        opacity: 0;
+        transition: opacity 0.3s ease-in-out;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Interactive Map Tour</h1>
+    <div id="map"></div>
+
+    <div id="viewer-container">
+      <div id="loading-indicator">Loading...</div>
+      <button id="viewer-close-button">&times;</button>
+    </div>
+
+    <div id="coord-helper-text">Hover and press 'C' to copy coordinates</div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r126/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/panolens@0.11.0/build/panolens.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <script>
+      const mapImage = {
+        url: "https://corsproxy.io/?https://file.garden/ZXP--j_dI1vYUjvY/map.jpg?v=1758755236199",
+        width: 1998,
+        height: 4955,
+      };
+      const locations = [
+        {
+          id: "view0.5",
+          file: "https://corsproxy.io/?https://file.garden/ZXP--j_dI1vYUjvY/2025-09-24_21.07.59.png",
+          coords: [3534, 468],
+          links: [{ to: "view1", position: { x: 388, y: 95, z: -1 } }],
+        },
+        {
+          id: "view1",
+          file: "https://corsproxy.io/?https://file.garden/ZXP--j_dI1vYUjvY/view1.png?v=1758755513753",
+          coords: [3443, 455],
+          links: [
+            { to: "view2", position: { x: 397, y: -47, z: -6 } },
+            { to: "view0.5", position: { x: -354, y: -178, z: 57 } },
+          ],
+        },
+        {
+          id: "view2",
+          file: "https://corsproxy.io/?https://file.garden/ZXP--j_dI1vYUjvY/2025-09-24_19.52.36.png",
+          coords: [3355, 453],
+          links: [
+            { to: "view1", position: { x: -395, y: -45, z: 40 } },
+            { to: "view3", position: { x: 302, y: -256, z: -54 } },
+          ],
+        },
+        {
+          id: "view3",
+          file: "https://corsproxy.io/?https://file.garden/ZXP--j_dI1vYUjvY/2025-09-24_20.28.50.png",
+          coords: [3284, 479],
+          links: [
+            { to: "view2", position: { x: 385, y: 92, z: -56 } },
+            { to: "view4", position: { x: -319, y: -36, z: -239 } },
+            { to: "view2.5", position: { x: 13, y: 29, z: 399 } },
+          ],
+        },
+        {
+          id: "view2.5",
+          file: "https://corsproxy.io/?https://file.garden/ZXP--j_dI1vYUjvY/2025-09-24_21.02.20.png",
+          coords: [3285, 537],
+          links: [
+            { to: "view3", position: { x: -368, y: -158, z: 8 } },
+            { to: "view4", position: { x: -335, y: -72, z: 206 } },
+          ],
+        },
+        {
+          id: "view4",
+          file: "https://corsproxy.io/?https://file.garden/ZXP--j_dI1vYUjvY/2025-09-24_20.52.23.png",
+          coords: [3233, 423],
+          links: [{ to: "view3", position: { x: -350, y: 18, z: -194 } }],
+        },
+      ];
+
+      document.addEventListener("DOMContentLoaded", function () {
+        const bounds = [
+          [0, 0],
+          [mapImage.height, mapImage.width],
+        ];
+        const map = L.map("map", {
+          crs: L.CRS.Simple,
+          minZoom: -2,
+          maxZoom: 2,
+        });
+        L.imageOverlay(mapImage.url, bounds).addTo(map);
+        map.fitBounds(bounds);
+
+        const viewerContainer = document.getElementById("viewer-container");
+        const closeButton = document.getElementById("viewer-close-button");
+        const loadingIndicator = document.getElementById("loading-indicator");
+        const coordHelperText = document.getElementById("coord-helper-text");
+
+        const viewer = new PANOLENS.Viewer({
+          container: viewerContainer,
+          controlBar: true,
+          controlButtons: ["fullscreen", "setting"],
+        });
+        viewer.setCameraFov(90);
+
+        let currentPanorama = null;
+        const pathCoordinates = [];
+        let clickableArrows = [];
+        let hoveredArrow = null;
+        const ARROW_COLOR_DEFAULT = 0xffffff;
+        const ARROW_COLOR_HOVER = 0x007bff;
+        let interactionStartPos = null;
+
+        locations.forEach((loc) => {
+          L.circleMarker(loc.coords, {
+            color: "white",
+            fillColor: "#007bff",
+            fillOpacity: 1,
+            radius: 10,
+          })
+            .addTo(map)
+            .on("click", (e) => {
+              L.DomEvent.stopPropagation(e);
+              openViewer(loc.id);
+            });
+          pathCoordinates.push(loc.coords);
+        });
+
+        L.polyline(pathCoordinates, { color: "#007bff", weight: 5 }).addTo(map);
+        map.on("click", function (e) {
+          const y = Math.round(e.latlng.lat);
+          const x = Math.round(e.latlng.lng);
+          alert(`Map Coordinates: [${y}, ${x}]`);
+        });
+
+        function openViewer(locationId) {
+          viewerContainer.style.display = "flex";
+          loadingIndicator.style.display = "block";
+          coordHelperText.style.opacity = 0;
+          clickableArrows = [];
+          hoveredArrow = null;
+          const locationData = locations.find((loc) => loc.id === locationId);
+          if (!locationData) return;
+          if (currentPanorama) {
+            viewer.remove(currentPanorama);
+            currentPanorama.dispose();
+          }
+          const panorama = new PANOLENS.ImagePanorama(locationData.file);
+          currentPanorama = panorama;
+          panorama.addEventListener("load", function () {
+            viewer.setPanorama(panorama);
+            viewer.onWindowResize();
+            loadingIndicator.style.display = "none";
+            // Hide coordinate helper on mobile devices for a cleaner look
+            if (!("ontouchstart" in window)) {
+              coordHelperText.style.opacity = 1;
+            }
+            locationData.links.forEach((linkInfo) => {
+              const destinationData = locations.find(
+                (l) => l.id === linkInfo.to
+              );
+              if (destinationData) {
+                const pos = linkInfo.position;
+                const geometry = new THREE.CircleGeometry(25, 32);
+                const material = new THREE.MeshBasicMaterial({
+                  color: ARROW_COLOR_DEFAULT,
+                  transparent: true,
+                  opacity: 0.8,
+                });
+                const arrowMesh = new THREE.Mesh(geometry, material);
+                arrowMesh.position.set(pos.x, pos.y, pos.z);
+                arrowMesh.lookAt(new THREE.Vector3(0, 0, 0));
+                arrowMesh.userData = { linkTo: destinationData.id };
+                panorama.add(arrowMesh);
+                clickableArrows.push(arrowMesh);
+              }
+            });
+          });
+          viewer.add(panorama);
+        }
+
+        function closeViewer() {
+          viewerContainer.style.display = "none";
+          coordHelperText.style.opacity = 0;
+        }
+
+        // --- FIX #2: Added 'touchend' for mobile close button ---
+        closeButton.addEventListener("click", function (event) {
+          event.stopPropagation();
+          closeViewer();
+        });
+        closeButton.addEventListener("touchend", function (event) {
+          event.stopPropagation();
+          closeViewer();
+        });
+
+        let lastMousePosition = { x: 0, y: 0 };
+        viewerContainer.addEventListener(
+          "mousemove",
+          function (event) {
+            if (viewerContainer.style.display !== "flex") return;
+            const rect = viewerContainer.getBoundingClientRect();
+            lastMousePosition.x = event.clientX - rect.left;
+            lastMousePosition.y = event.clientY - rect.top;
+            const intersections = viewer.raycaster.intersectObjects(
+              clickableArrows,
+              false
+            );
+            if (intersections.length > 0) {
+              const newHovered = intersections[0].object;
+              if (hoveredArrow !== newHovered) {
+                if (hoveredArrow) {
+                  hoveredArrow.material.color.set(ARROW_COLOR_DEFAULT);
+                }
+                hoveredArrow = newHovered;
+                hoveredArrow.material.color.set(ARROW_COLOR_HOVER);
+              }
+              viewerContainer.style.cursor = "pointer";
+            } else {
+              if (hoveredArrow) {
+                hoveredArrow.material.color.set(ARROW_COLOR_DEFAULT);
+              }
+              hoveredArrow = null;
+              viewerContainer.style.cursor = "default";
+            }
+          },
+          false
+        );
+
+        // --- FIX #1: Unified handler for both mouse and touch ---
+        function handleInteractionStart(e) {
+          const x = e.clientX ?? e.touches[0].clientX;
+          const y = e.clientY ?? e.touches[0].clientY;
+          interactionStartPos = { x: x, y: y };
+        }
+
+        function handleInteractionEnd(e) {
+          if (!interactionStartPos) return;
+          const endX = e.clientX ?? e.changedTouches[0].clientX;
+          const endY = e.clientY ?? e.changedTouches[0].clientY;
+
+          const deltaX = Math.abs(endX - interactionStartPos.x);
+          const deltaY = Math.abs(endY - interactionStartPos.y);
+
+          if (deltaX < 10 && deltaY < 10) {
+            // Slightly larger threshold for touch
+            const intersections = viewer.raycaster.intersectObjects(
+              clickableArrows,
+              false
+            );
+            if (intersections.length > 0) {
+              const destinationId = intersections[0].object.userData.linkTo;
+              if (destinationId) {
+                openViewer(destinationId);
+              }
+            }
+          }
+          interactionStartPos = null;
+        }
+
+        viewerContainer.addEventListener(
+          "mousedown",
+          handleInteractionStart,
+          false
+        );
+        viewerContainer.addEventListener(
+          "mouseup",
+          handleInteractionEnd,
+          false
+        );
+        viewerContainer.addEventListener(
+          "touchstart",
+          handleInteractionStart,
+          false
+        );
+        viewerContainer.addEventListener(
+          "touchend",
+          handleInteractionEnd,
+          false
+        );
+
+        viewerContainer.addEventListener(
+          "wheel",
+          function (event) {
+            event.preventDefault();
+            const fov = viewer.camera.fov;
+            const zoomSpeed = 12;
+            const newFov = fov + (event.deltaY > 0 ? zoomSpeed : -zoomSpeed);
+            const minFov = 30;
+            const maxFov = 110;
+            const clampedFov = Math.max(minFov, Math.min(maxFov, newFov));
+            gsap.to(viewer.camera, {
+              fov: clampedFov,
+              duration: 0.5,
+              ease: "power2.out",
+              onUpdate: function () {
+                viewer.camera.updateProjectionMatrix();
+              },
+            });
+          },
+          { passive: false }
+        );
+
+        window.addEventListener("keydown", function (event) {
+          if (
+            viewerContainer.style.display === "flex" &&
+            event.key.toLowerCase() === "c"
+          ) {
+            const intersections = viewer.raycaster.intersectObject(
+              viewer.panorama,
+              true
+            );
+            if (intersections.length === 0) {
+              return;
+            }
+            const vector = intersections[0].point;
+            vector.normalize();
+            vector.multiplyScalar(400);
+            const x = Math.round(vector.x);
+            const y = Math.round(vector.y);
+            const z = Math.round(vector.z);
+            prompt(
+              "Copy these coordinates (Ctrl+C):",
+              `position: { x: ${x}, y: ${y}, z: ${z} }`
+            );
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
