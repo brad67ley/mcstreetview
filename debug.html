@@ -108,6 +108,8 @@
       <button id="viewer-close-button">&times;</button>
     </div>
 
+    <div id="coord-helper-text">Hover and press 'C' to copy coordinates</div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r126/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/panolens@0.11.0/build/panolens.min.js"></script>
@@ -223,6 +225,7 @@
         map.on("click", function (e) {
           const y = Math.round(e.latlng.lat);
           const x = Math.round(e.latlng.lng);
+          alert(`Map Coordinates: [${y}, ${x}]`);
         });
 
         function openViewer(locationId) {
