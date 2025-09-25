@@ -20,7 +20,6 @@
         display: flex;
         flex-direction: column;
         height: 100vh;
-        /* Prevents pull-to-refresh on mobile */
         overscroll-behavior-y: contain;
       }
       h1 {
@@ -57,7 +56,6 @@
         color: white;
         border: 2px solid white;
         border-radius: 50%;
-        /* Increased size for easier tapping on mobile */
         width: 44px;
         height: 44px;
         font-size: 28px;
@@ -70,7 +68,6 @@
       #viewer-close-button:hover {
         background-color: rgba(255, 255, 255, 0.3);
       }
-
       #loading-indicator {
         color: white;
         font-size: 2em;
@@ -81,7 +78,6 @@
         position: absolute;
         display: none;
       }
-
       #coord-helper-text {
         position: fixed;
         bottom: 20px;
@@ -107,6 +103,9 @@
       <div id="loading-indicator">Loading...</div>
       <button id="viewer-close-button">&times;</button>
     </div>
+
+    <!-- THE FIX: This div is now moved up, before the script block -->
+    <div id="coord-helper-text">Hover and press 'C' to copy coordinates</div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r126/three.min.js"></script>
@@ -221,8 +220,7 @@
 
         L.polyline(pathCoordinates, { color: "#007bff", weight: 5 }).addTo(map);
         map.on("click", function (e) {
-          const y = Math.round(e.latlng.lat);
-          const x = Math.round(e.latlng.lng);
+          // This function is now empty for the published version
         });
 
         function openViewer(locationId) {
@@ -243,7 +241,6 @@
             viewer.setPanorama(panorama);
             viewer.onWindowResize();
             loadingIndicator.style.display = "none";
-            // Hide coordinate helper on mobile devices for a cleaner look
             if (!("ontouchstart" in window)) {
               coordHelperText.style.opacity = 1;
             }
@@ -276,7 +273,6 @@
           coordHelperText.style.opacity = 0;
         }
 
-        // --- FIX #2: Added 'touchend' for mobile close button ---
         closeButton.addEventListener("click", function (event) {
           event.stopPropagation();
           closeViewer();
@@ -319,7 +315,6 @@
           false
         );
 
-        // --- FIX #1: Unified handler for both mouse and touch ---
         function handleInteractionStart(e) {
           const x = e.clientX ?? e.touches[0].clientX;
           const y = e.clientY ?? e.touches[0].clientY;
@@ -330,12 +325,9 @@
           if (!interactionStartPos) return;
           const endX = e.clientX ?? e.changedTouches[0].clientX;
           const endY = e.clientY ?? e.changedTouches[0].clientY;
-
           const deltaX = Math.abs(endX - interactionStartPos.x);
           const deltaY = Math.abs(endY - interactionStartPos.y);
-
           if (deltaX < 10 && deltaY < 10) {
-            // Slightly larger threshold for touch
             const intersections = viewer.raycaster.intersectObjects(
               clickableArrows,
               false
